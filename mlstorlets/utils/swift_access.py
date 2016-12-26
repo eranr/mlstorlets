@@ -98,7 +98,8 @@ def invoke_storlet(url, token,
                    est_type, command, sest,
                    num_features=None, num_labels=None,
                    sample_weight=None,
-                   coef_init=None, intercept_init=None):
+                   coef_init=None, intercept_init=None,
+                   proxy_invoke=False):
     container_name, object_name = _parse_data_url(data_url)
 
     params = {'type': est_type,
@@ -119,6 +120,9 @@ def invoke_storlet(url, token,
             headers['X-Storlet-Parameter-%d' % i] = '%s:%s' % (key, params[key])
             i = i + 1
     headers['X-Run-Storlet'] = 'linear_model.py'
+    if proxy_invoke is True:
+        headers['X-Storlet-Run-On-Proxy'] = ''
+
     rest_headers, resp_content = client.get_object(
         url, token,
         container_name, object_name,

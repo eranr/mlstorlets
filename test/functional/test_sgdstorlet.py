@@ -49,8 +49,8 @@ class TestSGDStorlet(unittest.TestCase):
         X, Y = make_blobs(n_samples=1000, centers=2,
                           random_state=1, cluster_std=0.60)
         data_file_create('/tmp/data2', X, Y)
-        headers={'X-Object-Meta-num_features': '2',
-                 'X-Object-Meta-num_labels': '1'}
+        headers={'X-Object-Meta-num-features': '2',
+                 'X-Object-Meta-num-labels': '1'}
         put_local_file(self.url, self.token, self.container_name,
                        '/tmp','data2', headers)
 
@@ -61,15 +61,14 @@ class TestSGDStorlet(unittest.TestCase):
         data_file_destroy('/tmp/data1')
         data_file_destroy('/tmp/data2')
 
-    def test_invoke_fit(self):
+    def _test_invoke_fit_shape_from_param(self, proxy_invoke):
         data_url='%s/%s' % (self.container_name, 'data1')
         Xtest = [[0.7, 0.5], [2, 1]]
         reg = SGDRegressor(shuffle=False)
         sreg = regressor_to_string(reg) 
         res = invoke_storlet(self.url, self.token,
                              data_url, 'SGDRegressor', 'fit',
-                             sreg, '2', '1')
-        print res
+                             sreg, '2', '1', proxy_invoke)
         reg = regressor_from_string(res)
         p1 = reg.predict(Xtest)
 
@@ -79,3 +78,33 @@ class TestSGDStorlet(unittest.TestCase):
         p2 = reg.predict(Xtest)
 
         self.assertTrue(np.array_equal(p1, p2))
+
+    def _test_invoke_fit_shape_from_metadata(self, proxy_invoke):
+        data_url='%s/%s' % (self.container_name, 'data2')
+        Xtest = [[0.7, 0.5], [2, 1]]
+        reg = SGDRegressor(shuffle=False)
+        sreg = regressor_to_string(reg) 
+        res = invoke_storlet(self.url, self.token,
+                             data_url, 'SGDRegressor', 'fit',
+                             sreg, proxy_invoke=proxy_invoke)
+        reg = regressor_from_string(res)
+        p1 = reg.predict(Xtest)
+
+        reg = SGDRegressor(shuffle=False)
+        X, Y = data_file_read('/tmp/data2', 2, 1)
+        reg.fit(X,Y)
+        p2 = reg.predict(Xtest)
+
+        self.assertTrue(np.array_equal(p1, p2))
+
+    def test_fit_params_object_node(self):
+        self._test_invoke_fit_shape_from_param(False)
+
+    def test_fit_params_proxy_node(self):
+        self._test_invoke_fit_shape_from_param(True)
+
+    def test_fit_metadata_object_node(self):
+        self._test_invoke_fit_shape_from_metadata(False)
+
+    def test_fit_metadata_proxy_node(self):
+        self._test_invoke_fit_shape_from_metadata(True)

@@ -160,14 +160,20 @@ class SGDEstimator(object):
         num_features = None
         try:
             num_features = int(params['num_features'])
-            num_features = int(metadata['num_features'])
+        except Exception as e:
+            pass
+        try:
+            num_features = int(metadata['Num-Features'])
         except Exception as e:
             pass
 
         num_labels = None
         try:
             num_labels = int(params['num_labels'])
-            num_labels = int(metadata['num_labels'])
+        except Exception as e:
+            pass
+        try:
+            num_labels = int(metadata['Num-Labels'])
         except Exception as e:
             pass
 
@@ -203,12 +209,13 @@ class SGDEstimator(object):
         :param out_files: a list of StorletOutputFile
         :param params: a dict of request parameters
         """
-        self.logger.debug('Returning metadata')
+        self.logger.debug('Returning metadata\n')
         metadata = in_files[0].get_metadata()
+        self.logger.debug('Metadata is %s\n' % metadata)
         metadata['test'] = 'simple'
         out_files[0].set_metadata(metadata)
 
-        self.logger.debug('Build Estimator')
+        self.logger.debug('Build Estimator\n')
         esttype = params['type']
         if esttype == 'SGDRegressor':
             estimator = regressor_from_string(params['serialized_estimator']) 
@@ -236,6 +243,6 @@ class SGDEstimator(object):
             raise Exception('Unknown command %s' % command)
 
 
-        self.logger.debug('Complete')
+        self.logger.debug('Complete\n')
         in_files[0].close()
         out_files[0].close()
