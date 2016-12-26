@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2016 itsonlyme.name
+# Copyright (c) 2016 itsonlyme.name
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,27 +14,165 @@
 # limitations under the License.
 
 import json
+import StringIO
 import numpy as np
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
-# TODO: Add here the serialization implementation
-# 4 methods for now we import them.
-from mlstorlets.utils.serialize_model import\
-    classifier_from_string, classifier_to_string,\
-    regressor_from_string, regressor_to_string,\
-    deserialize_narray
+# The following serialization finctions are copied from
+#  mlstorlets/utils/serialize_model.py
+# Ideally this should be a dependency, however, we currently do not
+# have the appropriate dependency mechanism in place.
+def serialize_narray(a):
+    memfile = StringIO.StringIO()
+    np.save(memfile, a)
+    memfile.seek(0)
+    return json.dumps(memfile.read().decode('latin-1'))
+
+def deserialize_narray(sa):
+    memfile = StringIO.StringIO()
+    memfile.write(json.loads(sa).encode('latin-1'))
+    memfile.seek(0)
+    return np.load(memfile)
+
+def estimator_to_string(est):
+    params = est.get_params(deep=True)
+    # coef_ can be either None or array
+    params['coef_'] = None if est.coef_ is None else serialize_narray(est.coef_)
+    try:
+        # intercept either exists or doesn't
+        params['intercept_'] = serialize_narray(est.intercept_)
+    except Exception as e:
+        pass
+    if est.average > 0:
+        # average_coef_ can be either None or array
+        params['average_coef_'] = None if est.average_coef_ is None\
+            else serialize_narray(est.average_coef_)
+        params['standard_coef_'] = None if est.standard_coef_ is None\
+            else serialize_narray(est.standard_coef_)
+        try:
+            # average_intercept either exists or doesn't
+            params['average_intercept_'] = serialize_dnarray(est.average_intercept_)
+            params['standard_intercept_'] = serialize_dnarray(est.standard_intercept_)
+        except Exception:
+            pass
+
+    params['t_'] = est.t_
+
+    try:
+        params['classes_'] = serialize_narray(est.classes_)
+    except Exception as e:
+        print e
+        pass
+
+    return json.dumps(params)
+    
+def _update_fitted_state(est, params):
+    # coef_ can be either None or array
+    est.coef_ = None if params['coef_'] is None else deserialize_narray(params['coef_'])
+
+    try:
+        # intercept either exists or doesn't
+        est.intercept_ = est.standard_intercept_ =\
+            deserialize_narray(params['intercept_'])
+    except Exception:
+        pass
+
+    if params['average'] > 0:
+        # average_coef_ can be either None or array
+        est.average_coef_ = None if params['average_coef_'] is None else deserialize_narray(params['average_coef_'])
+        est.standard_coef_ = None if params['standard_coef_'] is None else deserialize_narray(params['standard_coef_'])
+
+        try:
+            # average_intercept either exists or doesn't
+            est.average_intercept_ =\
+                deserialize_narray(params['average_intercept_'])
+            est.standard_intercept_ =\
+                deserialize_narray(params['standard_intercept_'])
+        except Exception:
+            pass
+
+    est.t_ = params['t_']
+
+    try:
+        est.classes_ = deserialize_narray(params['classes_'])
+    except Exception:
+        pass
+
+
+def regressor_from_string(sest):
+    params = json.loads(sest)
+    regressor = SGDRegressor(
+        loss=params['loss'], penalty=params['penalty'],
+        alpha=params['alpha'],
+        l1_ratio=params['l1_ratio'],
+        fit_intercept=params['fit_intercept'],
+        n_iter=params['n_iter'],
+        shuffle=params['shuffle'],
+        verbose=params['verbose'],
+        epsilon=params['epsilon'],
+        random_state=params['random_state'],
+        learning_rate=params['learning_rate'],
+        eta0=params['eta0'],
+        power_t=params['power_t'],
+        warm_start=params['warm_start'],
+        average=params['average'])
+
+    _update_fitted_state(regressor, params)
+    return regressor
+
+
+def classifier_from_string(sest):
+    params = json.loads(sest)
+    classifier = SGDClassifier(
+        loss=params['loss'], penalty=params['penalty'],
+        alpha=params['alpha'],
+        l1_ratio=params['l1_ratio'],
+        fit_intercept=params['fit_intercept'],
+        n_iter=params['n_iter'],
+        shuffle=params['shuffle'],
+        verbose=params['verbose'],
+        epsilon=params['epsilon'],
+        n_jobs=params['n_jobs'],
+        random_state=params['random_state'],
+        learning_rate=params['learning_rate'],
+        eta0=params['eta0'],
+        power_t=params['power_t'],
+        class_weight=params['class_weight'],
+        warm_start=params['warm_start'],
+        average=params['average'])
+
+    _update_fitted_state(classifier, params)
+    return classifier
+
+def regressor_to_string(regressor):
+    return estimator_to_string(regressor)
+
+def classifier_to_string(classifer):
+    return estimator_to_string(classifer)
+# End of mlstorlets/utils/serialize_model.py
+
 
 class SGDEstimator(object):
     def __init__(self, logger):
         self.logger = logger
 
-    def _read_data(self, in_file, params):
+    def _read_data(self, in_file, params, metadata):
+        num_features = None
         try:
             num_features = int(params['num_features'])
-            num_labels = int(params['num_labels'])
+            num_features = int(metadata['num_features'])
         except Exception as e:
-            raise Exception(('Missing or Invalid num_features, num_labels') 
-                            ('%s') % e)
+            pass
+
+        num_labels = None
+        try:
+            num_labels = int(params['num_labels'])
+            num_labels = int(metadata['num_labels'])
+        except Exception as e:
+            pass
+
+        if num_features is None or num_labels is None:
+            raise Exception('Missing or Invalid num_features, num_labels')
 
         num_columns = num_features + num_labels
         T = np.loadtxt(in_file)
@@ -79,7 +217,7 @@ class SGDEstimator(object):
         else:
             raise Exception('Unkown estimator type')
 
-        X, y = self._read_data(in_files[0], params)
+        X, y = self._read_data(in_files[0], params, metadata)
 
         command = params['command']
         sample_weight = self._get_array_param(params, 'sample_weight')

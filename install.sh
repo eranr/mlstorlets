@@ -28,7 +28,7 @@ EOF
 sudo docker build -t storlet_scikit_learn /tmp/update_docker_image
 IMAGE_ID=`sudo docker images | grep storlet_scikit_learn | awk '{print $3}'`
 sudo docker rmi $PROJECT_ID
-sudo docker tag $IMAGE_ID $PROJECT_ID
+sudo docker tag $IMAGE_ID ${PROJECT_ID:0:13}
 sudo docker rmi storlet_scikit_learn
 
 rm -fr /tmp/update_docker_image

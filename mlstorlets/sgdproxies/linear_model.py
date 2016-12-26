@@ -13,14 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from mlstorlets.utils.serialize_model import\
     classifier_to_string, classifier_from_string,\
-    regressor_to_string, regressor_from_string
-import json
+    regressor_to_string, regressor_from_string,\
+    serialize_narray
+from mlstorlets.utils.swift_access import parse_config,\
+    get_auth, invoke_storlet
 
 class SGDProxyBase(object):
-    def __init__(self, estimator):
+    def __init__(self, estimator, config_file):
         self.estimator = estimator
         if isinstance(estimator, SGDClassifier):
             self.type = 'SGDClassifier'
@@ -33,11 +37,58 @@ class SGDProxyBase(object):
         self.deserialize = classifier_from_string\
             if self.type == 'SGDClassifier' else regressor_from_string
 
-    def remote_fit(self, path,
+        self.conf = None
+        if config_file:
+            self.conf = parse_config(config_file)
+
+        self.url = self.token = None
+
+    def _remote_command(self, data_url, command,
+            num_features=None, num_labels=None,
+            sample_weight=None,
+            coef_init=None, intercept_init=None):
+
+        if self.conf == None:
+            raise Exception('No access config provided')
+
+        if self.token == None:
+            self.url, self.token = get_auth(self.conf)
+
+        sest = self.serialize(self.estimator)
+
+        ssample_weight = scoef_init = sintercept_init = None
+        if sample_weight:
+            ssample_weight = serialize_narray(sample_weight)
+        if coef_init:
+            scoef_init = serialize_narray(coef_init)
+        if intercept_init:
+            sintercept_init = serialize_narray(intercept_init)
+
+        try:
+            result = invoke_storlet(self.url, self.token,
+                                    data_url,
+                                    est_type=self.type,
+                                    command=command,
+                                    est=sest,
+                                    num_features=num_features,
+                                    num_labels=num_labels,
+                                    sample_weight=ssample_weight,
+                                    coef_init=scoef_init,
+                                    intercept_init=sintercept_init)
+        except Exception as e:
+            # TODO: deal with auth exception to retry.
+            pass
+        return result
+
+    def remote_fit(self, data_url,
+            num_features=None, num_labels=None,
             coef_init=None, intercept_init=None,
             sample_weight=None):
-        # Invokes the storlet and updates internal state of self.sgdclassifier
-        pass
+        sest = self._remote_command(data_url, 'fit',
+                                    num_features, num_labels,
+                                    coef_init, intercept_init,
+                                    sample_weight)
+        self.estimator = self.deserialize(sest)        
 
     def simulate_remote_fit(self, X, y,
                             coef_init=None, intercept_init=None,
@@ -62,6 +113,15 @@ class SGDProxyBase(object):
                                   intercept_init,
                                   sample_weight)
 
+    def remote_score(self, data_url,
+            num_features=None, num_labels=None,
+            sample_weight=None):
+        result = self._remote_command(data_url, 'score',
+                                     num_features, num_labels,
+                                     sample_weight
+                                     coef_init, intercept_init)
+        return json.loads(result)['score']
+
     def simulate_remote_score(self, X, y,
                             sample_weight=None):
         # Simulate storlet call:
@@ -77,7 +137,6 @@ class SGDProxyBase(object):
         sest = self.serialize(est)
 
         # Update intenal state
-        self.estimator = self.deserialize(sest)
         return score
 
     def decision_function(self, X):
@@ -111,7 +170,8 @@ class SGDProxyBase(object):
 
 class SGDRegressorProxy(SGDProxyBase):
 
-    def __init__(self, loss="squared_loss", penalty="l2", alpha=0.0001,
+    def __init__(self, config_file=None,
+            loss="squared_loss", penalty="l2", alpha=0.0001,
             l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
             verbose=0, epsilon=0.1, random_state=None,
             learning_rate="invscaling", eta0=0.01, power_t=0.25,
@@ -130,11 +190,12 @@ class SGDRegressorProxy(SGDProxyBase):
             warm_start=False,
             average=average)
 
-        super(SGDRegressorProxy, self).__init__(sgdregressor)
+        super(SGDRegressorProxy, self).__init__(sgdregressor, config_file)
 
 class SGDClassifierProxy(SGDProxyBase):
 
-    def __init__(self, loss="hinge", penalty="l2", alpha=0.0001,
+    def __init__(self, config_file=None,
+            loss="hinge", penalty="l2", alpha=0.0001,
             l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
             verbose=0, epsilon=0.1, n_jobs=1, random_state=None,
             learning_rate="optimal", eta0=0.0, power_t=0.5,
@@ -155,88 +216,4 @@ class SGDClassifierProxy(SGDProxyBase):
             warm_start=False,
             average=average)
 
-        super(SGDClassifierProxy, self).__init__(sgdclassifier)
-
-#    def remote_fit(self, path,
-#            coef_init=None, intercept_init=None,
-#            sample_weight=None):
-#        # Invokes the storlet and updates internal state of self.sgdclassifier
-#        pass
-#
-#    def simulate_remote_fit(self, X, y,
-#                            coef_init=None, intercept_init=None,
-#                            sample_weight=None):
-#        # Simulate storlet call:
-#
-#        # Serialize internal classifier
-#        sreg = classifier_to_string(self.sgdclassifier)
-#
-#        # Simulate storlet side invocation
-#        classifier = classifier_from_string(sreg)
-#        classifier.fit(X,y)
-#        sreg = classifier_to_string(classifier)
-#
-#        # Update intenal state
-#        self.sgdclassifier = classifier_from_string(sreg)
-#
-#    def fit(self, X, y, coef_init=None, intercept_init=None,
-#            sample_weight=None):
-#        return self.sgdclassifier.fit(X, y,
-#                                  coef_init,
-#                                  intercept_init,
-#                                  sample_weight)
-#
-#    def fit_transform(self, X, y, **fit_params):
-#        return self.sgdclassifier.fit_transform(X, y, **fit_params)
-#
-#    def remote_score(self, path,
-#            sample_weight=None):
-#        # Invokes the storlet and updates internal state of self.sgdregressor
-#        pass
-#
-#    def simulate_remote_score(self, X, y,
-#                            sample_weight=None):
-#        # Simulate storlet call:
-#
-#        # Serialize internal regressor
-#        scli = classifier_to_string(self.sgdclassifier)
-#
-#        # Simulate storlet side invocation
-#        classifier = classifier_from_string(scli)
-#        score = classifier.score(X, y, sample_weight)
-#        # in case a call to score does not change the internal state
-#        # the below serialization / de-serialization is redundant
-#        scli = classifier_to_string(classifier)
-#
-#        # Update intenal state
-#        self.classifier = classifier_from_string(scli)
-#        return score
-#
-#    def decision_function(self, X):
-#        return self.sgdclassifier.decision_function(X)
-#
-#    def densify(self):
-#        return self.sgdclassifier.densify()
-#
-#    def sparsify(self):
-#        return self.sgdclassifier.sparsify()
-#
-#    def get_params(self, deep=False):
-#        return self.sgdclassifier.get_params(deep)
-#
-#    def set_params(self, *args, **kwargs):
-#        return self.sgdclassifier.set_params(args, kwargs)
-#
-#    def predict(self, X):
-#        return self.sgdclassifier.predict(X)
-#
-#    def score(self, X, y, sample_weight=None):
-#        return self.sgdclassifier.score(X)
-#
-#    @property
-#    def coef_(self):
-#        return self.sgdclassifier.coef_
-#
-#    @property
-#    def intercept_(self):
-#        return self.sgdclassifier.intercept_
+        super(SGDClassifierProxy, self).__init__(sgdclassifier, config_file)
