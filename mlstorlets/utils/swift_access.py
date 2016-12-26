@@ -17,6 +17,7 @@ import os
 import ConfigParser
 from swiftclient import client
 
+
 def parse_config(config_file):
     required_keys = ['auth_version',
                      'user',
@@ -34,10 +35,11 @@ def parse_config(config_file):
         except:
             raise
 
-    if all([k in conf for k in required_keys]) == False:
+    if all([k in conf for k in required_keys]) is False:
         raise Exception('Missing access information')
 
     return conf
+
 
 def get_auth(conf):
     """
@@ -56,6 +58,7 @@ def get_auth(conf):
                                  os_options=os_options,
                                  auth_version=conf['auth_version'])
     return url, token
+
 
 def put_local_file(url, token, container, local_dir, local_file, headers=None):
     """
@@ -76,6 +79,7 @@ def put_local_file(url, token, container, local_dir, local_file, headers=None):
         status = resp.get('status', 0)
         assert (status // 100 == 2)
 
+
 def deploy_mlstorlet(conf, path_to_storlet):
     url, token = get_auth(conf)
 
@@ -91,8 +95,8 @@ def _parse_data_url(data_url):
     url_elements = data_url.split('/')
     url_elements = [el for el in url_elements if el != '']
     return url_elements[0], url_elements[1]
-            
-    
+
+
 def invoke_storlet(url, token,
                    data_url,
                    est_type, command, sest,
@@ -117,7 +121,8 @@ def invoke_storlet(url, token,
     i = 1
     for key in params:
         if params[key]:
-            headers['X-Storlet-Parameter-%d' % i] = '%s:%s' % (key, params[key])
+            headers['X-Storlet-Parameter-%d' % i] =\
+                '%s:%s' % (key, params[key])
             i = i + 1
     headers['X-Run-Storlet'] = 'linear_model.py'
     if proxy_invoke is True:

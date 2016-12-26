@@ -23,6 +23,7 @@ from mlstorlets.utils.serialize_model import\
 from mlstorlets.utils.swift_access import parse_config,\
     get_auth, invoke_storlet
 
+
 class SGDProxyBase(object):
     def __init__(self, estimator, config_file):
         self.estimator = estimator
@@ -44,14 +45,14 @@ class SGDProxyBase(object):
         self.url = self.token = None
 
     def _remote_command(self, data_url, command,
-            num_features=None, num_labels=None,
-            sample_weight=None,
-            coef_init=None, intercept_init=None):
+                        num_features=None, num_labels=None,
+                        sample_weight=None,
+                        coef_init=None, intercept_init=None):
 
-        if self.conf == None:
+        if self.conf is None:
             raise Exception('No access config provided')
 
-        if self.token == None:
+        if self.token is None:
             self.url, self.token = get_auth(self.conf)
 
         sest = self.serialize(self.estimator)
@@ -75,20 +76,20 @@ class SGDProxyBase(object):
                                     sample_weight=ssample_weight,
                                     coef_init=scoef_init,
                                     intercept_init=sintercept_init)
-        except Exception as e:
+        except Exception:
             # TODO: deal with auth exception to retry.
             pass
         return result
 
     def remote_fit(self, data_url,
-            num_features=None, num_labels=None,
-            coef_init=None, intercept_init=None,
-            sample_weight=None):
+                   num_features=None, num_labels=None,
+                   coef_init=None, intercept_init=None,
+                   sample_weight=None):
         sest = self._remote_command(data_url, 'fit',
                                     num_features, num_labels,
                                     coef_init, intercept_init,
                                     sample_weight)
-        self.estimator = self.deserialize(sest)        
+        self.estimator = self.deserialize(sest)
 
     def simulate_remote_fit(self, X, y,
                             coef_init=None, intercept_init=None,
@@ -100,7 +101,7 @@ class SGDProxyBase(object):
 
         # Simulate storlet side invocation
         est = self.deserialize(sest)
-        est.fit(X,y)
+        est.fit(X, y)
         sest = self.serialize(est)
 
         # Update intenal state
@@ -114,16 +115,15 @@ class SGDProxyBase(object):
                                   sample_weight)
 
     def remote_score(self, data_url,
-            num_features=None, num_labels=None,
-            sample_weight=None):
+                     num_features=None, num_labels=None,
+                     sample_weight=None):
         result = self._remote_command(data_url, 'score',
-                                     num_features, num_labels,
-                                     coef_init, intercept_init,
-                                     sample_weight)
+                                      num_features, num_labels,
+                                      sample_weight)
         return json.loads(result)['score']
 
     def simulate_remote_score(self, X, y,
-                            sample_weight=None):
+                              sample_weight=None):
         # Simulate storlet call:
 
         # Serialize internal regressor
@@ -168,20 +168,21 @@ class SGDProxyBase(object):
     def intercept_(self):
         return self.estimator.intercept_
 
+
 class SGDRegressorProxy(SGDProxyBase):
 
     def __init__(self, config_file=None,
-            loss="squared_loss", penalty="l2", alpha=0.0001,
-            l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
-            verbose=0, epsilon=0.1, random_state=None,
-            learning_rate="invscaling", eta0=0.01, power_t=0.25,
-            warm_start=False, average=False):
+                 loss="squared_loss", penalty="l2", alpha=0.0001,
+                 l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
+                 verbose=0, epsilon=0.1, random_state=None,
+                 learning_rate="invscaling", eta0=0.01, power_t=0.25,
+                 warm_start=False, average=False):
 
         sgdregressor = SGDRegressor(
             loss=loss, penalty=penalty,
             alpha=alpha, l1_ratio=l1_ratio,
             fit_intercept=fit_intercept,
-            n_iter=n_iter,shuffle=shuffle,
+            n_iter=n_iter, shuffle=shuffle,
             verbose=verbose,
             epsilon=epsilon,
             random_state=random_state,
@@ -192,20 +193,21 @@ class SGDRegressorProxy(SGDProxyBase):
 
         super(SGDRegressorProxy, self).__init__(sgdregressor, config_file)
 
+
 class SGDClassifierProxy(SGDProxyBase):
 
     def __init__(self, config_file=None,
-            loss="hinge", penalty="l2", alpha=0.0001,
-            l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
-            verbose=0, epsilon=0.1, n_jobs=1, random_state=None,
-            learning_rate="optimal", eta0=0.0, power_t=0.5,
-            class_weight=None, warm_start=False, average=False):
+                 loss="hinge", penalty="l2", alpha=0.0001,
+                 l1_ratio=0.15, fit_intercept=True, n_iter=5, shuffle=True,
+                 verbose=0, epsilon=0.1, n_jobs=1, random_state=None,
+                 learning_rate="optimal", eta0=0.0, power_t=0.5,
+                 class_weight=None, warm_start=False, average=False):
 
         sgdclassifier = SGDClassifier(
             loss=loss, penalty=penalty,
             alpha=alpha, l1_ratio=l1_ratio,
             fit_intercept=fit_intercept,
-            n_iter=n_iter,shuffle=shuffle,
+            n_iter=n_iter, shuffle=shuffle,
             verbose=verbose,
             epsilon=epsilon,
             n_jobs=n_jobs,

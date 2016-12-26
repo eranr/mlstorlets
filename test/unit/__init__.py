@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import traceback
 from collections import defaultdict
+
 
 class FakeLogger(object):
     def __init__(self, *args, **kwargs):

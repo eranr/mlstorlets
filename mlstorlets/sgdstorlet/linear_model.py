@@ -18,6 +18,7 @@ import StringIO
 import numpy as np
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
+
 # The following serialization finctions are copied from
 #  mlstorlets/utils/serialize_model.py
 # Ideally this should be a dependency, however, we currently do not
@@ -28,16 +29,19 @@ def serialize_narray(a):
     memfile.seek(0)
     return json.dumps(memfile.read().decode('latin-1'))
 
+
 def deserialize_narray(sa):
     memfile = StringIO.StringIO()
     memfile.write(json.loads(sa).encode('latin-1'))
     memfile.seek(0)
     return np.load(memfile)
 
+
 def estimator_to_string(est):
     params = est.get_params(deep=True)
     # coef_ can be either None or array
-    params['coef_'] = None if est.coef_ is None else serialize_narray(est.coef_)
+    params['coef_'] = None if est.coef_ is None\
+        else serialize_narray(est.coef_)
     try:
         # intercept either exists or doesn't
         params['intercept_'] = serialize_narray(est.intercept_)
@@ -51,8 +55,10 @@ def estimator_to_string(est):
             else serialize_narray(est.standard_coef_)
         try:
             # average_intercept either exists or doesn't
-            params['average_intercept_'] = serialize_dnarray(est.average_intercept_)
-            params['standard_intercept_'] = serialize_dnarray(est.standard_intercept_)
+            params['average_intercept_'] =\
+                serialize_narray(est.average_intercept_)
+            params['standard_intercept_'] =\
+                serialize_narray(est.standard_intercept_)
         except Exception:
             pass
 
@@ -65,10 +71,12 @@ def estimator_to_string(est):
         pass
 
     return json.dumps(params)
-    
+
+
 def _update_fitted_state(est, params):
     # coef_ can be either None or array
-    est.coef_ = None if params['coef_'] is None else deserialize_narray(params['coef_'])
+    est.coef_ = None if params['coef_'] is None\
+        else deserialize_narray(params['coef_'])
 
     try:
         # intercept either exists or doesn't
@@ -79,8 +87,10 @@ def _update_fitted_state(est, params):
 
     if params['average'] > 0:
         # average_coef_ can be either None or array
-        est.average_coef_ = None if params['average_coef_'] is None else deserialize_narray(params['average_coef_'])
-        est.standard_coef_ = None if params['standard_coef_'] is None else deserialize_narray(params['standard_coef_'])
+        est.average_coef_ = None if params['average_coef_'] is None\
+            else deserialize_narray(params['average_coef_'])
+        est.standard_coef_ = None if params['standard_coef_'] is None\
+            else deserialize_narray(params['standard_coef_'])
 
         try:
             # average_intercept either exists or doesn't
@@ -144,8 +154,10 @@ def classifier_from_string(sest):
     _update_fitted_state(classifier, params)
     return classifier
 
+
 def regressor_to_string(regressor):
     return estimator_to_string(regressor)
+
 
 def classifier_to_string(classifer):
     return estimator_to_string(classifer)
@@ -160,21 +172,21 @@ class SGDEstimator(object):
         num_features = None
         try:
             num_features = int(params['num_features'])
-        except Exception as e:
+        except Exception:
             pass
         try:
             num_features = int(metadata['Num-Features'])
-        except Exception as e:
+        except Exception:
             pass
 
         num_labels = None
         try:
             num_labels = int(params['num_labels'])
-        except Exception as e:
+        except Exception:
             pass
         try:
             num_labels = int(metadata['Num-Labels'])
-        except Exception as e:
+        except Exception:
             pass
 
         if num_features is None or num_labels is None:
@@ -188,8 +200,8 @@ class SGDEstimator(object):
                             (T.size, num_features + num_labels))
 
         num_samples = T.size / (num_features + num_labels)
-        T = np.reshape(T,(num_samples, num_columns))
-        X, y, _junk = np.hsplit(T,np.array((num_features, num_columns)))
+        T = np.reshape(T, (num_samples, num_columns))
+        X, y, _junk = np.hsplit(T, np.array((num_features, num_columns)))
         return X, y
 
     def _get_array_param(self, params, param):
@@ -218,7 +230,7 @@ class SGDEstimator(object):
         self.logger.debug('Build Estimator\n')
         esttype = params['type']
         if esttype == 'SGDRegressor':
-            estimator = regressor_from_string(params['serialized_estimator']) 
+            estimator = regressor_from_string(params['serialized_estimator'])
         elif esttype == 'SGDClassifier':
             estimator = classifier_from_string(params['serialized_estimator'])
         else:
@@ -231,7 +243,7 @@ class SGDEstimator(object):
         if command == 'fit':
             coef_init = self._get_array_param(params, 'coef_init')
             intercept_init = self._get_array_param(params, 'intercept_init')
-            estimator.fit(X,y, coef_init, intercept_init, sample_weight)
+            estimator.fit(X, y, coef_init, intercept_init, sample_weight)
             if esttype == 'SGDRegressor':
                 out_files[0].write(regressor_to_string(estimator))
             elif esttype == 'SGDClassifier':
@@ -241,7 +253,6 @@ class SGDEstimator(object):
             out_files[0].write(json.dumps({'score': score}))
         else:
             raise Exception('Unknown command %s' % command)
-
 
         self.logger.debug('Complete\n')
         in_files[0].close()

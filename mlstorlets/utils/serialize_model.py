@@ -3,11 +3,13 @@ import numpy
 import StringIO
 from sklearn.linear_model import SGDRegressor, SGDClassifier
 
+
 def serialize_narray(a):
     memfile = StringIO.StringIO()
     numpy.save(memfile, a)
     memfile.seek(0)
     return json.dumps(memfile.read().decode('latin-1'))
+
 
 def deserialize_narray(sa):
     memfile = StringIO.StringIO()
@@ -15,10 +17,12 @@ def deserialize_narray(sa):
     memfile.seek(0)
     return numpy.load(memfile)
 
+
 def estimator_to_string(est):
     params = est.get_params(deep=True)
     # coef_ can be either None or array
-    params['coef_'] = None if est.coef_ is None else serialize_narray(est.coef_)
+    params['coef_'] = None if est.coef_ is None\
+        else serialize_narray(est.coef_)
     try:
         # intercept either exists or doesn't
         params['intercept_'] = serialize_narray(est.intercept_)
@@ -32,8 +36,10 @@ def estimator_to_string(est):
             else serialize_narray(est.standard_coef_)
         try:
             # average_intercept either exists or doesn't
-            params['average_intercept_'] = serialize_dnarray(est.average_intercept_)
-            params['standard_intercept_'] = serialize_dnarray(est.standard_intercept_)
+            params['average_intercept_'] =\
+                serialize_narray(est.average_intercept_)
+            params['standard_intercept_'] =\
+                serialize_narray(est.standard_intercept_)
         except Exception:
             pass
 
@@ -46,10 +52,12 @@ def estimator_to_string(est):
         pass
 
     return json.dumps(params)
-    
+
+
 def _update_fitted_state(est, params):
     # coef_ can be either None or array
-    est.coef_ = None if params['coef_'] is None else deserialize_narray(params['coef_'])
+    est.coef_ = None if params['coef_'] is None\
+        else deserialize_narray(params['coef_'])
 
     try:
         # intercept either exists or doesn't
@@ -60,8 +68,10 @@ def _update_fitted_state(est, params):
 
     if params['average'] > 0:
         # average_coef_ can be either None or array
-        est.average_coef_ = None if params['average_coef_'] is None else deserialize_narray(params['average_coef_'])
-        est.standard_coef_ = None if params['standard_coef_'] is None else deserialize_narray(params['standard_coef_'])
+        est.average_coef_ = None if params['average_coef_'] is None\
+            else deserialize_narray(params['average_coef_'])
+        est.standard_coef_ = None if params['standard_coef_'] is None\
+            else deserialize_narray(params['standard_coef_'])
 
         try:
             # average_intercept either exists or doesn't
@@ -125,8 +135,10 @@ def classifier_from_string(sest):
     _update_fitted_state(classifier, params)
     return classifier
 
+
 def regressor_to_string(regressor):
     return estimator_to_string(regressor)
+
 
 def classifier_to_string(classifer):
     return estimator_to_string(classifer)

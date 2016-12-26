@@ -17,7 +17,7 @@ import unittest
 
 from sklearn.linear_model import SGDRegressor, SGDClassifier
 from mlstorlets.sgdproxies.linear_model import SGDRegressorProxy,\
-     SGDClassifierProxy
+    SGDClassifierProxy
 from sklearn.datasets.samples_generator import make_blobs
 import numpy as np
 
@@ -25,11 +25,11 @@ import numpy as np
 class TestSDGProxy(unittest.TestCase):
 
     def _get_local_estimator(self, est_type, proxy):
-        if proxy == False:
+        if proxy is False:
             if est_type == 'SGDRegressor':
-                model=SGDRegressor(n_iter=10000,
-                                   epsilon=0.0001,
-                                   shuffle=False)
+                model = SGDRegressor(n_iter=10000,
+                                     epsilon=0.0001,
+                                     shuffle=False)
             else:
                 model = SGDClassifier(n_iter=10000,
                                       epsilon=0.0001,
@@ -105,7 +105,7 @@ class TestSDGProxy(unittest.TestCase):
         X, Y = make_blobs(n_samples=1000, centers=2,
                           random_state=0, cluster_std=0.60)
         model = self._get_local_estimator(est_type, proxy)
-        if proxy == False:
+        if proxy is False:
             model.fit(X, Y)
         else:
             model.simulate_remote_fit(X, Y)
@@ -131,29 +131,31 @@ class TestSDGProxy(unittest.TestCase):
         s1 = model.sparsify().densify().coef_
         model = self._get_fitted_model('SGDRegressor', proxy=True)
         s2 = model.sparsify().densify().coef_
+        self.assertTrue(np.array_equal(s1, s2))
 
     def test_clf_densify(self):
         model = self._get_fitted_model('SGDClassifier', proxy=False)
         s1 = model.sparsify().densify().coef_
         model = self._get_fitted_model('SGDClassifier', proxy=True)
         s2 = model.sparsify().densify().coef_
+        self.assertTrue(np.array_equal(s1, s2))
 
     def test_reg_simulate_remote_score(self):
         model = self._get_fitted_model('SGDRegressor', proxy=True)
         X, Y = make_blobs(n_samples=100, centers=2,
                           random_state=1, cluster_std=0.60)
-        f1 = model.simulate_remote_score(X,Y)
+        f1 = model.simulate_remote_score(X, Y)
         model = self._get_fitted_model('SGDRegressor', proxy=False)
-        f2 = model.score(X,Y)
+        f2 = model.score(X, Y)
         self.assertTrue(f1, f2)
 
     def test_clf_simulate_remote_score(self):
         model = self._get_fitted_model('SGDClassifier', proxy=True)
         X, Y = make_blobs(n_samples=100, centers=2,
                           random_state=1, cluster_std=0.60)
-        f1 = model.simulate_remote_score(X,Y)
+        f1 = model.simulate_remote_score(X, Y)
         model = self._get_fitted_model('SGDClassifier', proxy=False)
-        f2 = model.score(X,Y)
+        f2 = model.score(X, Y)
         self.assertTrue(f1, f2)
 
     def test_iclf_max_margin_sep(self):
