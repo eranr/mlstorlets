@@ -118,8 +118,8 @@ class SGDProxyBase(object):
             sample_weight=None):
         result = self._remote_command(data_url, 'score',
                                      num_features, num_labels,
-                                     sample_weight
-                                     coef_init, intercept_init)
+                                     coef_init, intercept_init,
+                                     sample_weight)
         return json.loads(result)['score']
 
     def simulate_remote_score(self, X, y,
