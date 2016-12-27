@@ -168,24 +168,24 @@ class SGDEstimator(object):
     def __init__(self, logger):
         self.logger = logger
 
-    def _read_data(self, in_file, params, metadata):
+    def _read_data(self, in_file):
         num_features = None
         try:
-            num_features = int(params['num_features'])
+            num_features = int(self.params['num_features'])
         except Exception:
             pass
         try:
-            num_features = int(metadata['Num-Features'])
+            num_features = int(self.metadata['Num-Features'])
         except Exception:
             pass
 
         num_labels = None
         try:
-            num_labels = int(params['num_labels'])
+            num_labels = int(self.params['num_labels'])
         except Exception:
             pass
         try:
-            num_labels = int(metadata['Num-Labels'])
+            num_labels = int(self.metadata['Num-Labels'])
         except Exception:
             pass
 
@@ -204,14 +204,15 @@ class SGDEstimator(object):
         X, y, _junk = np.hsplit(T, np.array((num_features, num_columns)))
         return X, y
 
-    def _get_array_param(self, params, param):
+    def _get_array_param(self, param):
         try:
-            array_param = deserialize_narray(params[param])
+            array_param = deserialize_narray(self.params[param])
             return array_param
         except KeyError:
             return None
         except Exception:
             raise
+
 
     def __call__(self, in_files, out_files, params):
         """
@@ -221,28 +222,30 @@ class SGDEstimator(object):
         :param out_files: a list of StorletOutputFile
         :param params: a dict of request parameters
         """
+        self.params = params
         self.logger.debug('Returning metadata\n')
-        metadata = in_files[0].get_metadata()
-        self.logger.debug('Metadata is %s\n' % metadata)
-        metadata['test'] = 'simple'
-        out_files[0].set_metadata(metadata)
+        self.metadata = in_files[0].get_metadata()
+        self.logger.debug('Metadata is %s\n' % self.metadata)
+        out_files[0].set_metadata(self.metadata)
 
         self.logger.debug('Build Estimator\n')
-        esttype = params['type']
+        esttype = self.params['type']
         if esttype == 'SGDRegressor':
-            estimator = regressor_from_string(params['serialized_estimator'])
+            estimator = regressor_from_string(
+                self.params['serialized_estimator'])
         elif esttype == 'SGDClassifier':
-            estimator = classifier_from_string(params['serialized_estimator'])
+            estimator = classifier_from_string(
+                self.params['serialized_estimator'])
         else:
             raise Exception('Unkown estimator type')
 
-        X, y = self._read_data(in_files[0], params, metadata)
+        X, y = self._read_data(in_files[0])
 
-        command = params['command']
-        sample_weight = self._get_array_param(params, 'sample_weight')
+        command = self.params['command']
+        sample_weight = self._get_array_param('sample_weight')
         if command == 'fit':
-            coef_init = self._get_array_param(params, 'coef_init')
-            intercept_init = self._get_array_param(params, 'intercept_init')
+            coef_init = self._get_array_param('coef_init')
+            intercept_init = self._get_array_param('intercept_init')
             estimator.fit(X, y, coef_init, intercept_init, sample_weight)
             if esttype == 'SGDRegressor':
                 out_files[0].write(regressor_to_string(estimator))

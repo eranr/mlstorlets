@@ -67,7 +67,6 @@ class TestLinearModelStorlet(unittest.TestCase):
         sdgest = SGDEstimator(logger=FakeLogger())
         sdgest(in_files, out_files, params)
         out_md = json.loads(os.read(md_infd, 100))
-        self.assertTrue('test' in out_md)
         if command == 'fit':
             sest = os.read(obj_infd, 1024)
             est = regressor_from_string(sest) if esttype == 'SGDRegressor'\
