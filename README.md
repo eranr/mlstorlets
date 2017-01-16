@@ -7,10 +7,12 @@ machine learning.
 # TL;DR
 On a fresh new 16.04 VM with a passwordless sudoer simply:
 
+```
 git clone https://github.com/eranr/mlstorlets.git
 cd mlstorlets
 ./install.sh
 tox -e functional
+```
 
 This will install Swift and Storlets on the VM together with
 a docker container that has the scikit-learn package.
